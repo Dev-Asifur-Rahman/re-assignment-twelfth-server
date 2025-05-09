@@ -45,9 +45,9 @@ async function run(app) {
 
     // Database and Collections
     const twelfthDB = client.db("twelfthDB");
-    const camps = twelfthDB.collection("camps")
+    const camps = twelfthDB.collection("camps");
     const users = twelfthDB.collection("users");
-    const registered_users = twelfthDB.collection("registered_users")
+    const registered_users = twelfthDB.collection("registered_users");
 
     // verify email
     const verifyEmail = (req, res, next) => {
@@ -134,8 +134,8 @@ async function run(app) {
       const all_user = await result.toArray();
       res.send(all_user);
     });
-    
-    // delete user 
+
+    // delete user
     app.delete("/delete/:id", verifyToken, verifyAdmin, async (req, res) => {
       const id = req.params.id;
       const query = { _id: new ObjectId(id) };
@@ -143,60 +143,100 @@ async function run(app) {
       res.send(result);
     });
 
-    // upload a camp 
-    app.post("/upload-camp/",verifyToken,verifyAdmin,async(req,res)=>{
-      const camp_data = req.body
-      const result = await camps.insertOne(camp_data)
-      res.send(result)
-    })
-    
-    // get all camps 
-    app.get("/camps",async(req,res)=>{
-      const get_camps = camps.find()
-      const all_camp = await get_camps.toArray()
-      res.send(all_camp)
-    })
+    // upload a camp
+    app.post("/upload-camp/", verifyToken, verifyAdmin, async (req, res) => {
+      const camp_data = req.body;
+      const result = await camps.insertOne(camp_data);
+      res.send(result);
+    });
 
-    // get a camp 
-    app.get("/camp/:id",async(req,res)=>{
-      const id = req.params.id
-      const query = {_id:new ObjectId(id)}
-      const result = await camps.findOne(query)
-      res.send(result)
-    })
+    // get all camps
+    app.get("/camps", async (req, res) => {
+      const get_camps = camps.find();
+      const all_camp = await get_camps.toArray();
+      res.send(all_camp);
+    });
 
-    // update camp info 
-    app.patch("/update-camp/:campId",verifyToken,verifyAdmin,async(req,res)=>{
-      const id = req.params.campId
-    })
-    
-    // delete camp 
-    app.delete("/delete-camp/:campId",verifyToken,verifyAdmin,async(req,res)=>{
-      const id = req.params.campId
-      const query = {_id : new ObjectId(id)}
-      const result = await camps.deleteOne(query)
-      res.send(result) 
-    })
+    // get a camp
+    app.get("/camp/:id", async (req, res) => {
+      const id = req.params.id;
+      const query = { _id: new ObjectId(id) };
+      const result = await camps.findOne(query);
+      res.send(result);
+    });
 
-    // registered_users 
-    app.post("/register-campaign",verifyToken,async(req,res)=>{
-      const get_object = req.body
-      const query = {campId:get_object.campId,email:get_object.email}
-      const isRegistered = await registered_users.findOne(query)
-      if(isRegistered){
-        return res.send({acknowledged
-          :false})
+    // update camp info
+    app.patch(
+      "/update-camp/:campId",
+      verifyToken,
+      verifyAdmin,
+      async (req, res) => {
+        const id = req.params.campId;
       }
-      else{
-        const insert_result = await registered_users.insertOne(get_object)
+    );
+
+    // delete camp
+    app.delete(
+      "/delete-camp/:campId",
+      verifyToken,
+      verifyAdmin,
+      async (req, res) => {
+        const id = req.params.campId;
+        const query = { _id: new ObjectId(id) };
+        const result = await camps.deleteOne(query);
+        res.send(result);
+      }
+    );
+
+    // registered_users
+    app.post("/register-campaign", verifyToken, async (req, res) => {
+      const get_object = req.body;
+      const query = { campId: get_object.campId, email: get_object.email };
+      const isRegistered = await registered_users.findOne(query);
+      if (isRegistered) {
+        return res.send({ acknowledged: false });
+      } else {
+        const insert_result = await registered_users.insertOne(get_object);
         const result = await camps.updateOne(
           { _id: new ObjectId(get_object.campId) },
           { $inc: { participants: 1 } }
         );
-        res.send(insert_result)
+        res.send(insert_result);
       }
-    })
+    });
 
+    // get registered users
+    app.get("/registered-users", verifyToken, verifyAdmin, async (req, res) => {
+      const all_registered_users = await registered_users.find().toArray();
+      const filtered_registered_users = all_registered_users.map(
+        ({ _id, campId, camp_name, camp_fee, payment_status, patient,confirmation_status }) => ({
+          _id,
+          campId,
+          camp_name,
+          camp_fee,
+          patient,
+          payment_status,
+          confirmation_status
+        })
+      );
+
+      res.send(filtered_registered_users);
+    });
+
+    // confirmation register users
+    app.patch(
+      "/confirm-status/:id",
+      verifyToken,
+      verifyAdmin,
+      async (req, res) => {
+        const id = req.params.id;
+        const result = await registered_users.updateOne(
+          { _id: new ObjectId(id) },
+          { $set: { confirmation_status: true } }
+        );
+        res.send(result);
+      }
+    );
   } finally {
     // Ensures that the client will close when you finish/error
     // await client.close();
