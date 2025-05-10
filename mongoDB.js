@@ -144,7 +144,7 @@ async function run(app) {
     });
 
     // upload a camp
-    app.post("/upload-camp/", verifyToken, verifyAdmin, async (req, res) => {
+    app.post("/upload-camp", verifyToken, verifyAdmin, async (req, res) => {
       const camp_data = req.body;
       const result = await camps.insertOne(camp_data);
       res.send(result);
@@ -188,7 +188,7 @@ async function run(app) {
       }
     );
 
-    // registered_users
+    // register_users
     app.post("/register-campaign", verifyToken, async (req, res) => {
       const get_object = req.body;
       const query = { campId: get_object.campId, email: get_object.email };
@@ -209,14 +209,22 @@ async function run(app) {
     app.get("/registered-users", verifyToken, verifyAdmin, async (req, res) => {
       const all_registered_users = await registered_users.find().toArray();
       const filtered_registered_users = all_registered_users.map(
-        ({ _id, campId, camp_name, camp_fee, payment_status, patient,confirmation_status }) => ({
+        ({
+          _id,
+          campId,
+          camp_name,
+          camp_fee,
+          payment_status,
+          patient,
+          confirmation_status,
+        }) => ({
           _id,
           campId,
           camp_name,
           camp_fee,
           patient,
           payment_status,
-          confirmation_status
+          confirmation_status,
         })
       );
 
@@ -237,6 +245,46 @@ async function run(app) {
         res.send(result);
       }
     );
+
+    // cancel registration from admin panel
+    app.delete(
+      "/cancel-registration/:id",
+      verifyToken,
+      verifyAdmin,
+      async (req, res) => {
+        const id = req.params.id;
+        const campId = req.query.campId;
+        const camp_registration_result = await camps.updateOne(
+          { _id: new ObjectId(campId) },
+          { $inc: { participants: -1 } }
+        );
+        const query = { _id: new ObjectId(id) };
+        const result = await registered_users.deleteOne(query);
+        res.send(result);
+      }
+    );
+
+    // cancel registration from user panel
+    app.delete("/reject-registration", async (req, res) => {
+      const body = req.body;
+      const id = body.id;
+      const campId = body.campId;
+      const camp_registration_result = await camps.updateOne(
+        { _id: new ObjectId(campId) },
+        { $inc: { participants: -1 } }
+      );
+      const query = { _id: new ObjectId(id) };
+      const result = await registered_users.deleteOne(query);
+      res.send(result);
+    });
+
+    app.get("/user-registered-camps", verifyToken, async (req, res) => {
+      const email = req.query.email;
+      const query = { email: email };
+      const cursor = registered_users.find(query);
+      const result = await cursor.toArray();
+      res.send(result);
+    });
   } finally {
     // Ensures that the client will close when you finish/error
     // await client.close();
