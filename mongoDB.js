@@ -171,7 +171,13 @@ async function run(app) {
       verifyToken,
       verifyAdmin,
       async (req, res) => {
-        const id = req.params.campId;
+        const id = req.params.campId
+        const body = req.body
+        const result = await camps.updateOne(
+        { _id: new ObjectId(id) },
+        { $set: body}
+      );
+      res.send(result);
       }
     );
 
@@ -277,7 +283,8 @@ async function run(app) {
       const result = await registered_users.deleteOne(query);
       res.send(result);
     });
-
+    
+    // get user registered camps 
     app.get("/user-registered-camps", verifyToken, async (req, res) => {
       const email = req.query.email;
       const query = { email: email };
