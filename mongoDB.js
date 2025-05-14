@@ -1,5 +1,6 @@
 const { application } = require("express");
 const jwt = require("jsonwebtoken");
+const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY)
 
 const {
   MongoClient,
@@ -292,6 +293,18 @@ async function run(app) {
       const result = await cursor.toArray();
       res.send(result);
     });
+
+  //  create payment intent 
+  app.post("/create-payment-intent", async (req, res) => {
+    const {fee} = req.body
+    const amount = parseInt(fee*100)
+    const paymentInTent = await stripe.paymentInTents.create({
+      amount:amount,
+      currency:'usd',
+      payment_method_types :['card']
+    })
+    res.send({clientSecret:paymentInTent.client_secret})
+  })
   } finally {
     // Ensures that the client will close when you finish/error
     // await client.close();
