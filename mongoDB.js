@@ -1,6 +1,6 @@
 const { application } = require("express");
 const jwt = require("jsonwebtoken");
-const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY)
+const stripe = require("stripe")(process.env.STRIPE_SECRET_KEY);
 
 const {
   MongoClient,
@@ -49,6 +49,7 @@ async function run(app) {
     const camps = twelfthDB.collection("camps");
     const users = twelfthDB.collection("users");
     const registered_users = twelfthDB.collection("registered_users");
+    const payment_history = twelfthDB.collection("payment_history");
 
     // verify email
     const verifyEmail = (req, res, next) => {
@@ -172,13 +173,13 @@ async function run(app) {
       verifyToken,
       verifyAdmin,
       async (req, res) => {
-        const id = req.params.campId
-        const body = req.body
+        const id = req.params.campId;
+        const body = req.body;
         const result = await camps.updateOne(
-        { _id: new ObjectId(id) },
-        { $set: body}
-      );
-      res.send(result);
+          { _id: new ObjectId(id) },
+          { $set: body }
+        );
+        res.send(result);
       }
     );
 
@@ -284,8 +285,8 @@ async function run(app) {
       const result = await registered_users.deleteOne(query);
       res.send(result);
     });
-    
-    // get user registered camps 
+
+    // get user registered camps
     app.get("/user-registered-camps", verifyToken, async (req, res) => {
       const email = req.query.email;
       const query = { email: email };
@@ -294,17 +295,39 @@ async function run(app) {
       res.send(result);
     });
 
-  //  create payment intent 
-  app.post("/create-payment-intent", async (req, res) => {
-    const {fee} = req.body
-    const amount = parseInt(fee*100)
-    const paymentInTent = await stripe.paymentInTents.create({
-      amount:amount,
-      currency:'usd',
-      payment_method_types :['card']
-    })
-    res.send({clientSecret:paymentInTent.client_secret})
-  })
+    //  create payment intent
+    app.post("/create-payment-intent", async (req, res) => {
+      const { fee } = req.body;
+      const amount = parseInt(fee * 100);
+      const paymentIntent = await stripe.paymentIntents.create({
+        amount: amount,
+        currency: "usd",
+        payment_method_types: ["card"],
+      });
+      res.send({ clientSecret: paymentIntent.client_secret });
+    });
+
+    // upload payment history
+    app.post("/upload-payment-history", verifyToken, async (req, res) => {
+      const payment_object = req.body;
+      const camp_id = payment_object.campId;
+      const payment_result = await registered_users.updateOne(
+        { _id: new ObjectId(camp_id) },
+        { $set: { payment_status: true } }
+      );
+      if (payment_result.acknowledged) {
+        const result = await payment_history.insertOne(payment_object);
+        res.send(result);
+      }
+    });
+
+    app.get("/payment-history", verifyToken, async (req, res) => {
+      const email = req.user.email;
+      const query = { email: email };
+      const cursor = payment_history.find(query);
+      const result = await cursor.toArray();
+      res.send(result);
+    });
   } finally {
     // Ensures that the client will close when you finish/error
     // await client.close();
