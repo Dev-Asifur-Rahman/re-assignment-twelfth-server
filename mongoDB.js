@@ -373,6 +373,13 @@ async function run(app) {
       const topCamps = await camps.find({ _id: { $in: topCampIds } }).toArray();
       res.status(200).json(topCamps);
     });
+
+    // get all feedback
+    app.get("/feedbacks",async(req,res)=>{
+      const cursor = feedback.find()
+      const result = await cursor.toArray()
+      res.send(result)
+    })
   } finally {
     // Ensures that the client will close when you finish/error
     // await client.close();
