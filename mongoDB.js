@@ -36,13 +36,13 @@ function verifyToken(req, res, next) {
 async function run(app) {
   try {
     // Connect the client to the server	(optional starting in v4.7)
-    await client.connect();
+    // await client.connect();
 
     // Send a ping to confirm a successful connection
-    await client.db("admin").command({ ping: 1 });
-    console.log(
-      "Pinged your deployment. You successfully connected to MongoDB!"
-    );
+    // await client.db("admin").command({ ping: 1 });
+    // console.log(
+    //   "Pinged your deployment. You successfully connected to MongoDB!"
+    // );
 
     // Database and Collections
     const twelfthDB = client.db("twelfthDB");
@@ -50,6 +50,7 @@ async function run(app) {
     const users = twelfthDB.collection("users");
     const registered_users = twelfthDB.collection("registered_users");
     const payment_history = twelfthDB.collection("payment_history");
+    const feedback = twelfthDB.collection("feedback");
 
     // verify email
     const verifyEmail = (req, res, next) => {
@@ -321,12 +322,56 @@ async function run(app) {
       }
     });
 
+    // get payment_history
     app.get("/payment-history", verifyToken, async (req, res) => {
       const email = req.user.email;
       const query = { email: email };
       const cursor = payment_history.find(query);
       const result = await cursor.toArray();
       res.send(result);
+    });
+
+    // upload feedback
+    app.post("/feedback", verifyToken, async (req, res) => {
+      const feedback_object = req.body;
+      const query = {
+        email: feedback_object.email,
+        campId: feedback_object.campId,
+      };
+      const check_feedback = await feedback.findOne(query);
+      if (check_feedback) {
+        return res.send({ acknowledged: false });
+      }
+      const result = await feedback.insertOne(feedback_object);
+      res.send(result);
+    });
+    // get first three feedback
+    app.get("/top-rated-camps", async (req, res) => {
+      const topThreeFeedbacks = await feedback
+        .aggregate([
+          {
+            $group: {
+              _id: "$campId",
+              count: { $sum: 1 },
+              docs: { $push: "$$ROOT" },
+            },
+          },
+          { $sort: { count: -1 } },
+          { $limit: 3 },
+          {
+            $project: {
+              topFeedback: { $first: "$docs" },
+            },
+          },
+        ])
+        .toArray();
+
+      const topCampIds = topThreeFeedbacks.map(
+        (item) => new ObjectId(item.topFeedback.campId)
+      );
+
+      const topCamps = await camps.find({ _id: { $in: topCampIds } }).toArray();
+      res.status(200).json(topCamps);
     });
   } finally {
     // Ensures that the client will close when you finish/error
