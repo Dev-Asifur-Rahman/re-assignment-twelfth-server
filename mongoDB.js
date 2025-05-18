@@ -87,8 +87,8 @@ async function run(app) {
       });
       res.cookie("token", token, {
         httpOnly: true,
-        secure: true,
-        sameSite: "none",
+        secure: process.env.NODE_ENV === "production",
+        sameSite: process.env.NODE_ENV === "production" ? "none" : "strict",
       });
       res.send({ success: true });
     });
@@ -97,8 +97,8 @@ async function run(app) {
     app.post("/logout", (req, res) => {
       res.clearCookie("token", {
         httpOnly: true,
-        secure: true,
-        sameSite: "none",
+        secure: process.env.NODE_ENV === "production",
+        sameSite: process.env.NODE_ENV === "production" ? "none" : "strict",
       });
       res.send({ success: true });
     });
@@ -375,11 +375,11 @@ async function run(app) {
     });
 
     // get all feedback
-    app.get("/feedbacks",async(req,res)=>{
-      const cursor = feedback.find()
-      const result = await cursor.toArray()
-      res.send(result)
-    })
+    app.get("/feedbacks", async (req, res) => {
+      const cursor = feedback.find();
+      const result = await cursor.toArray();
+      res.send(result);
+    });
   } finally {
     // Ensures that the client will close when you finish/error
     // await client.close();
